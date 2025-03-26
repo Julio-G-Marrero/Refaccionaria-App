@@ -73,7 +73,7 @@ if (isset($_GET['buscar']) && $marca && $submarca && $anio) {
 ?>
 
 <div class="main-content">
-    <h2>Captura de Productos - Buscar en Catálogo</h2>
+    <h2>Captura de Productos - Buscar en Catálogo 2</h2>
 
     <form method="GET" action="<?= admin_url('admin.php') ?>">
         <input type="hidden" name="page" value="captura-productos">
