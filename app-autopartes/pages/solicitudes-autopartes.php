@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cerrar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones, compatHtml);
+                    mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones, compatibilidades);
                 }
             });
         });
@@ -221,38 +221,49 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
         .join('');
 
     Swal.fire({
-        title: 'Crear Producto en WooCommerce',
-        html: `
-            <form id="formCrearProducto" class="text-left">
-                <input type="hidden" name="solicitud_id" value="${solicitudId}">
+    title: 'Crear Producto en WooCommerce',
+    html: `
+        <form id="formCrearProducto" class="text-left">
+            <input type="hidden" name="solicitud_id" value="${solicitudId}">
 
-                <label class="block text-sm font-medium">Código (SKU)</label>
-                <input type="text" id="sku" name="sku" value="${codigo}" class="w-full border rounded p-2 mb-2">
+            <label class="block text-sm font-medium">Código (SKU)</label>
+            <input type="text" id="sku" name="sku" value="${codigo}" class="w-full border rounded p-2 mb-2">
 
-                <label class="block text-sm font-medium">Nombre del Producto</label>
-                <input type="text" id="nombre" name="nombre" value="${descripcion}" class="w-full border rounded p-2 mb-2">
+            <label class="block text-sm font-medium">Nombre del Producto</label>
+            <input type="text" id="nombre" name="nombre" value="${descripcion}" class="w-full border rounded p-2 mb-2">
 
-                <label class="block text-sm font-medium">Precio</label>
-                <input type="number" id="precio" name="precio" class="w-full border rounded p-2 mb-2">
+            <label class="block text-sm font-medium">Precio</label>
+            <input type="number" id="precio" name="precio" class="w-full border rounded p-2 mb-2">
 
-                <label class="block text-sm font-medium">Categoría</label>
-                <select id="categoria" name="categoria" class="w-full border rounded p-2 mb-2">
-                    <option value="">Seleccione una</option>
-                    ${opcionesCategorias}
-                </select>
+            <label class="block text-sm font-medium">Categoría</label>
+            <select id="categoria" name="categoria" class="w-full border rounded p-2 mb-2">
+                <option value="">Seleccione una</option>
+                ${opcionesCategorias}
+            </select>
 
-                <label class="block text-sm font-medium">Ubicación Física</label>
-                <select id="ubicacion" name="ubicacion" class="w-full border rounded p-2 mb-2">
-                    <option value="">Seleccione una ubicación</option>
-                    ${opcionesUbicaciones}
-                </select>
+            <label class="block text-sm font-medium">Ubicación Física</label>
+            <select id="ubicacion" name="ubicacion" class="w-full border rounded p-2 mb-2">
+                <option value="">Seleccione una ubicación</option>
+                ${opcionesUbicaciones}
+            </select>
 
-                <label class="block text-sm font-medium">Observaciones</label>
-                <textarea id="observaciones" name="observaciones" class="w-full border rounded p-2 mb-4">${observaciones}</textarea>
+            <label class="block text-sm font-medium">Observaciones</label>
+            <textarea id="observaciones" name="observaciones" class="w-full border rounded p-2 mb-4">${observaciones}</textarea>
 
-                ${galeriaHTML}
-            </form>
-        `,
+            ${galeriaHTML}
+
+            <!-- Mostrar compatibilidades (visible para depuración) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Compatibilidades detectadas</label>
+                <textarea readonly class="w-full border rounded p-2 text-xs bg-gray-100 text-gray-800" rows="4">
+				${compatibilidades.map(c => `${c.marca} ${c.submarca} (${c.rango})`).join('\n')}
+                </textarea>
+            </div>
+
+            <!-- Compatibilidades como input hidden -->
+            <input type="hidden" name="compatibilidades_debug" id="compatibilidades_debug" value='${JSON.stringify(compatibilidades)}'>
+        </form>
+    `,
         didOpen: () => {
             if (sugerida) {
                 document.getElementById("categoria").value = sugerida;
