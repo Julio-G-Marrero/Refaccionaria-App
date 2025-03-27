@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cerrar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones, compatibilidades);
+                    mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones, compatHtml);
                 }
             });
         });
