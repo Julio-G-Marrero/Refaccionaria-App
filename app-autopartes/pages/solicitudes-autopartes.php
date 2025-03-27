@@ -112,20 +112,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             let imagenSubida = '';
-                if (imagenes.length > 0) {
-                    imagenSubida += `<div class="grid grid-cols-2 md:grid-cols-3 gap-4 justify-center">`;
-                    imagenes.forEach((url) => {
-                        imagenSubida += `
-                            <img src="${url}" 
-                                class="w-full max-w-[120px] h-[100px] object-cover border rounded shadow cursor-pointer hover:scale-105 transition-transform duration-200 mx-auto" 
-                                onclick="mostrarImagenGrande('${url}')"
-                            />`;
-                    });
-                    imagenSubida += `</div>`;
-                } else {
-                    imagenSubida = `<p class="text-gray-400 italic">Sin imágenes subidas</p>`;
-                }
-
+            if (imagenes.length > 0) {
+                imagenSubida += `<div class="grid grid-cols-2 md:grid-cols-3 gap-4 justify-center">`;
+                imagenes.forEach((url) => {
+                    imagenSubida += `
+                        <img src="${url}" 
+                            class="w-full max-w-[120px] h-[100px] object-cover border rounded shadow cursor-pointer hover:scale-105 transition-transform duration-200 mx-auto" 
+                            onclick="mostrarImagenGrande('${url}')"
+                        />`;
+                });
+                imagenSubida += `</div>`;
+            } else {
+                imagenSubida = `<p class="text-gray-400 italic">Sin imágenes subidas</p>`;
+            }
 
             const contenido = `
                 <div class="text-left space-y-4 text-sm">
@@ -134,12 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div><strong>Estado de la Pieza:</strong> <span class="text-blue-700 font-medium">${estado.replaceAll('_', ' ')}</span></div>
                     <div><strong>Ubicación Física:</strong> ${ubicacion}</div>
                     <div><strong>Observaciones:</strong> ${observaciones || '<span class="text-gray-400 italic">Ninguna</span>'}</div>
-
-                    <div>
-                        <strong>Compatibilidades:</strong>
-                        ${compatHtml}
-                    </div>
-
+                    <div><strong>Compatibilidades:</strong>${compatHtml}</div>
                     <div class="grid grid-cols-2 gap-4 mt-4 text-center">
                         <div>
                             <p class="font-semibold mb-2">Imagen del Catálogo</p>
@@ -163,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cerrar'
             }).then((result) => {
                 if (result.isConfirmed) {
-					mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones, compatibilidades);
+                    mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones, compatibilidades);
                 }
             });
         });
@@ -186,7 +180,7 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
     const imagenes = JSON.parse(
         document.querySelector(`button[data-id="${solicitudId}"]`).dataset.imagenes || '[]'
     );
-    // Obtener categoría sugerida según descripción
+
     let sugerida = '';
     const desc = descripcion.toUpperCase();
     const mapaSugerencias = ['PUERTA', 'CALAVERA', 'COFRE', 'ESPEJO', 'FARO', 'DEFENSA'];
@@ -201,7 +195,6 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
         }
     }
 
-    // Galería de imágenes
     let galeriaHTML = '';
     if (imagenes.length > 0) {
         galeriaHTML = `
@@ -219,12 +212,10 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
         galeriaHTML += `</div>`;
     }
 
-    // Opciones de ubicaciones
     const opcionesUbicaciones = window.ubicacionesDisponibles
         .map(u => `<option value="${u.id}" ${u.nombre === ubicacionActual ? 'selected' : ''}>${u.nombre}</option>`)
         .join('');
 
-    // Opciones de categorías WooCommerce
     const opcionesCategorias = window.categoriasWoo
         .map(cat => `<option value="${cat.term_id}">${cat.name}</option>`)
         .join('');
@@ -280,7 +271,8 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
                 categoria: document.getElementById('categoria').value,
                 ubicacion: document.getElementById('ubicacion').value,
                 observaciones: document.getElementById('observaciones').value,
-                imagenes: seleccionadas
+                imagenes: seleccionadas,
+                compatibilidades: compatibilidades
             };
         }
     }).then(result => {
@@ -297,13 +289,8 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
             formData.append('ubicacion', datos.ubicacion);
             formData.append('observaciones', datos.observaciones);
             formData.append('imagenes', JSON.stringify(datos.imagenes));
+            formData.append('compatibilidades', JSON.stringify(datos.compatibilidades));
 
-            const compatData = document.querySelector(`button[data-id="${datos.solicitud_id}"]`)?.dataset.compatibilidades;
-            if (compatData) {
-                formData.append('compatibilidades', compatData);
-            }
-
-            // Mostrar popup de carga
             Swal.fire({
                 title: 'Creando producto...',
                 html: 'Por favor espera mientras se crea el producto',
@@ -324,26 +311,26 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
             .then(data => {
                 if (data.success) {
                     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://dev-refacciones-app.pantheonsite.io/?sku=' + datos.sku)}`;
-					const compat = data.compatibilidades || [];
-                    Swal.fire({
-                       	title: 'Producto creado',
-					    html: `
-					        <p><strong>SKU:</strong> ${datos.sku}</p>
-					        <p>El producto fue creado exitosamente.</p>
-					        <p class="mt-4">Código QR:</p>
-					        <img src="${qrUrl}" alt="QR del producto" class="mx-auto mt-2" />
-					
-					        <div class="text-left mt-4">
-					            <p class="font-semibold">Compatibilidades asignadas:</p>
-					            <ul class="list-disc ml-5 text-sm">
-					                ${compat.map(c => `<li>${c}</li>`).join('')}
-					            </ul>
-					        </div>
-					    `,
-					    width: '700px',
-					    confirmButtonText: 'Aceptar'
-                    }).then(() => location.reload());
+                    const compat = data.compatibilidades || [];
 
+                    Swal.fire({
+                        title: 'Producto creado',
+                        html: `
+                            <p><strong>SKU:</strong> ${datos.sku}</p>
+                            <p>El producto fue creado exitosamente.</p>
+                            <p class="mt-4">Código QR:</p>
+                            <img src="${qrUrl}" alt="QR del producto" class="mx-auto mt-2" />
+
+                            <div class="text-left mt-4">
+                                <p class="font-semibold">Compatibilidades asignadas:</p>
+                                <ul class="list-disc ml-5 text-sm">
+                                    ${compat.map(c => `<li>${c}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `,
+                        width: '700px',
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => location.reload());
                 } else {
                     Swal.fire('Error', data.data?.message || 'Error al crear el producto.', 'error');
                 }
