@@ -327,16 +327,24 @@ function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubi
             .then(data => {
                 if (data.success) {
                     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://dev-refacciones-app.pantheonsite.io/?sku=' + datos.sku)}`;
-
+					const compat = data.compatibilidades || [];
                     Swal.fire({
-                        title: 'Producto creado',
-                        html: `
-                            <p><strong>SKU:</strong> ${datos.sku}</p>
-                            <p>El producto fue creado exitosamente.</p>
-                            <p class="mt-4">Código QR:</p>
-                            <img src="${qrUrl}" alt="QR del producto" class="mx-auto mt-2" />
-                        `,
-                        confirmButtonText: 'Aceptar'
+                       	title: 'Producto creado',
+					    html: `
+					        <p><strong>SKU:</strong> ${datos.sku}</p>
+					        <p>El producto fue creado exitosamente.</p>
+					        <p class="mt-4">Código QR:</p>
+					        <img src="${qrUrl}" alt="QR del producto" class="mx-auto mt-2" />
+					
+					        <div class="text-left mt-4">
+					            <p class="font-semibold">Compatibilidades asignadas:</p>
+					            <ul class="list-disc ml-5 text-sm">
+					                ${compat.map(c => `<li>${c}</li>`).join('')}
+					            </ul>
+					        </div>
+					    `,
+					    width: '700px',
+					    confirmButtonText: 'Aceptar'
                     }).then(() => location.reload());
 
                 } else {

@@ -305,8 +305,15 @@ function crear_producto_autoparte() {
     $wpdb->update("{$wpdb->prefix}solicitudes_piezas", [
         'estado' => 'aprobada'
     ], ['id' => $solicitud_id]);
+	
+	$terminos_asignados = wp_get_object_terms($post_id, $taxonomy, ['fields' => 'names']);
 
-    wp_send_json_success(['message' => 'Producto creado correctamente.']);
+	wp_send_json_success([
+    	'message' => 'Producto creado correctamente.',
+    	'sku' => $sku,
+    	'compatibilidades' => $terminos_asignados
+	]);
+
 }
 
 add_action('admin_enqueue_scripts', 'catalogo_autopartes_enqueue_scripts');
