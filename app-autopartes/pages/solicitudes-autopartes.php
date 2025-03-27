@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cerrar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones);
+					mostrarFormularioCreacionProducto(id, codigo, descripcion, ubicacion, observaciones, compatibilidades);
                 }
             });
         });
@@ -181,14 +181,11 @@ function cerrarImagenModal() {
   document.getElementById('imagen-modal').classList.remove('show');
 }
 
-function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubicacionActual, observaciones) {
+
+function mostrarFormularioCreacionProducto(solicitudId, codigo, descripcion, ubicacionActual, observaciones, compatibilidades) {
     const imagenes = JSON.parse(
         document.querySelector(`button[data-id="${solicitudId}"]`).dataset.imagenes || '[]'
     );
-    const compatibilidades = JSON.parse(
-        document.querySelector(`button[data-id="${solicitudId}"]`).dataset.compatibilidades || '[]'
-    );
-
     // Obtener categoría sugerida según descripción
     let sugerida = '';
     const desc = descripcion.toUpperCase();
