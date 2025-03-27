@@ -157,7 +157,7 @@ function crear_producto_autoparte() {
         wp_send_json_error(['message' => 'Permisos insuficientes.']);
     }
 
-    // Recibir y sanitizar los datos
+    // Sanitizar datos recibidos
     $sku = sanitize_text_field($_POST['sku'] ?? '');
     $nombre = sanitize_text_field($_POST['nombre'] ?? '');
     $precio = floatval($_POST['precio'] ?? 0);
@@ -193,17 +193,16 @@ function crear_producto_autoparte() {
     update_post_meta($post_id, '_stock', 1);
     update_post_meta($post_id, '_stock_status', 'instock');
 
-
     // Categoría
     if ($categoria_id) {
         wp_set_object_terms($post_id, [$categoria_id], 'product_cat');
     }
 
-    // Ubicación y observaciones como campos personalizados
+    // Ubicación y observaciones
     update_post_meta($post_id, '_ubicacion_fisica', $ubicacion);
     update_post_meta($post_id, '_observaciones', $observaciones);
 
-    // Adjuntar imágenes
+    // Imágenes
     require_once(ABSPATH . 'wp-admin/includes/image.php');
     require_once(ABSPATH . 'wp-admin/includes/file.php');
     require_once(ABSPATH . 'wp-admin/includes/media.php');
@@ -232,40 +231,60 @@ function crear_producto_autoparte() {
         update_post_meta($post_id, '_product_image_gallery', implode(',', $galeria_ids));
     }
 
-    // Agregar compatibilidades como atributo personalizado
+    // Compatibilidades
     if (!empty($compatibilidades)) {
-        $atributo_valores = [];
+        $attribute_slug = 'compatibilidades';
+        $taxonomy = 'pa_' . $attribute_slug;
+
+        // Registrar la taxonomía si no existe
+        if (!taxonomy_exists($taxonomy)) {
+            register_taxonomy($taxonomy, 'product', [
+                'hierarchical' => false,
+                'label' => 'Compatibilidades',
+                'query_var' => true,
+                'rewrite' => ['slug' => sanitize_title($attribute_slug)],
+            ]);
+        }
+
+        $terminos = [];
 
         foreach ($compatibilidades as $c) {
-            $entrada = $c->marca . ' ' . $c->submarca . ' (' . $c->rango . ')';
-            $atributo_valores[] = $entrada;
-        }
+            $marca = sanitize_text_field($c->marca ?? '');
+            $modelo = sanitize_text_field($c->submarca ?? '');
+            $rango = explode('-', $c->rango ?? '');
+            $anio_inicio = intval(trim($rango[0] ?? 0));
+            $anio_fin = intval(trim($rango[1] ?? 0));
 
-        $attribute_slug = 'compatibilidades'; // WooCommerce lo convertirá a pa_compatibilidades
+            if (!$marca || !$modelo || !$anio_inicio || !$anio_fin) continue;
 
-        // Registrar el atributo si no existe
-        if (!taxonomy_exists('pa_' . $attribute_slug)) {
-            register_taxonomy(
-                'pa_' . $attribute_slug,
-                'product',
-                ['hierarchical' => false, 'label' => 'Compatibilidades', 'query_var' => true, 'rewrite' => ['slug' => sanitize_title($attribute_slug)]]
-            );
-        }
+            // 1. Término visual del rango
+            $rango_legible = "$marca $modelo ($anio_inicio–$anio_fin)";
+            $terminos[] = $rango_legible;
 
-        // Crear los términos del atributo si no existen
-        foreach ($atributo_valores as $valor) {
-            if (!term_exists($valor, 'pa_' . $attribute_slug)) {
-                wp_insert_term($valor, 'pa_' . $attribute_slug);
+            // 2. Términos por año para búsqueda precisa
+            for ($anio = $anio_inicio; $anio <= $anio_fin; $anio++) {
+                $terminos[] = "$marca $modelo $anio";
             }
         }
 
-        // Asignar los términos al producto
-        wp_set_object_terms($post_id, $atributo_valores, 'pa_' . $attribute_slug);
+        // Quitar duplicados
+        $terminos = array_unique($terminos);
 
-        // Establecer el atributo en el producto
+        // Crear términos si no existen
+        foreach ($terminos as $term) {
+            $term = sanitize_text_field(trim($term));
+            if (!term_exists($term, $taxonomy)) {
+                wp_insert_term($term, $taxonomy);
+            }
+        }
+
+        // Asignar términos al producto
+        wp_set_object_terms($post_id, $terminos, $taxonomy);
+
+        // Declarar el atributo como visible
         $product_attributes = [
-            'pa_' . $attribute_slug => [
-                'name'         => 'pa_' . $attribute_slug,
+            $taxonomy => [
+                'name'         => $taxonomy,
                 'value'        => '',
                 'is_visible'   => 1,
                 'is_variation' => 0,
@@ -276,7 +295,7 @@ function crear_producto_autoparte() {
         update_post_meta($post_id, '_product_attributes', $product_attributes);
     }
 
-    // Cambiar estado de la solicitud
+    // Marcar solicitud como aprobada
     global $wpdb;
     $wpdb->update("{$wpdb->prefix}solicitudes_piezas", [
         'estado' => 'aprobada'
