@@ -283,14 +283,15 @@ function crear_producto_autoparte() {
 
         // Declarar el atributo como visible
         $product_attributes = [
-            $taxonomy => [
-                'name'         => $taxonomy,
-                'value'        => '',
-                'is_visible'   => 1,
-                'is_variation' => 0,
-                'is_taxonomy'  => 1
-            ]
-        ];
+		    'pa_compatibilidades' => [
+		        'name'         => 'pa_compatibilidades',
+		        'value'        => '',
+		        'position'     => 0,
+		        'is_visible'   => 1,
+		        'is_variation' => 0,
+		        'is_taxonomy'  => 1
+		    ]
+		];
 
         update_post_meta($post_id, '_product_attributes', $product_attributes);
 		// Refrescar producto como objeto WC_Product y guardar cambios
