@@ -293,6 +293,11 @@ function crear_producto_autoparte() {
         ];
 
         update_post_meta($post_id, '_product_attributes', $product_attributes);
+		// Refrescar producto como objeto WC_Product y guardar cambios
+		$product = wc_get_product($post_id);
+		$product->save(); // Asegura que todos los cambios se guarden en Woo
+		$asignados = wp_get_object_terms($post_id, $taxonomy, ['fields' => 'names']);
+		error_log('Compatibilidades asignadas: ' . print_r($asignados, true));
     }
 
     // Marcar solicitud como aprobada
