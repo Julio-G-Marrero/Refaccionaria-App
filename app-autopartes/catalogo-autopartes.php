@@ -30,6 +30,34 @@ if (file_exists($product_sync_path)) {
 // Función que se ejecuta al activar el plugin (crea las tablas necesarias)
 register_activation_hook(__FILE__, 'catalogo_autopartes_activar');
 
+register_activation_hook(__FILE__, function() {
+    global $wpdb;
+
+    $attribute_name = 'compat_autopartes';
+
+    // Verifica si ya existe
+    $exists = $wpdb->get_var($wpdb->prepare("
+        SELECT attribute_id FROM {$wpdb->prefix}woocommerce_attribute_taxonomies WHERE attribute_name = %s
+    ", $attribute_name));
+
+    if (!$exists) {
+        $wpdb->insert(
+            "{$wpdb->prefix}woocommerce_attribute_taxonomies",
+            [
+                'attribute_name' => $attribute_name,
+                'attribute_label' => 'Compat Autopartes',
+                'attribute_type' => 'select',
+                'attribute_orderby' => 'name',
+                'attribute_public' => 1
+            ]
+        );
+
+        // Forzar refresco de taxonomías
+        delete_transient('wc_attribute_taxonomies');
+    }
+});
+
+
 function catalogo_autopartes_activar() {
     require_once plugin_dir_path(__FILE__) . 'includes/database.php';
     catalogo_autopartes_crear_tablas();
@@ -57,21 +85,6 @@ function catalogo_autopartes_cargar_recursos($hook) {
     wp_enqueue_script('catalogo-autopartes-js', CATALOGO_AUTOPARTES_URL . 'assets/script.js', array('jquery'), CATALOGO_AUTOPARTES_VERSION, true);
 }
 add_action('admin_enqueue_scripts', 'catalogo_autopartes_cargar_recursos');
-
-add_action('init', 'registrar_taxonomia_compatibilidades');
-function registrar_taxonomia_compatibilidades() {
-    $taxonomy = 'pa_compatibilidades';
-    if (!taxonomy_exists($taxonomy)) {
-        register_taxonomy($taxonomy, 'product', [
-            'hierarchical' => false,
-            'label' => 'Compatibilidades',
-            'query_var' => true,
-            'rewrite' => ['slug' => 'compatibilidades'],
-            'show_admin_column' => true,
-            'show_in_rest' => true,
-        ]);
-    }
-}
 
 add_action('admin_init', 'catalogo_autopartes_exportar_csv');
 function catalogo_autopartes_exportar_csv() {
@@ -172,7 +185,7 @@ function crear_producto_autoparte() {
         wp_send_json_error(['message' => 'Permisos insuficientes.']);
     }
 
-    // Sanitizar datos recibidos
+    // Sanitizar datos
     $sku = sanitize_text_field($_POST['sku'] ?? '');
     $nombre = sanitize_text_field($_POST['nombre'] ?? '');
     $precio = floatval($_POST['precio'] ?? 0);
@@ -186,7 +199,7 @@ function crear_producto_autoparte() {
     if (!is_array($imagenes)) $imagenes = [];
     if (!is_array($compatibilidades)) $compatibilidades = [];
 
-    // Crear producto en WooCommerce
+    // Crear producto
     $post_id = wp_insert_post([
         'post_title'   => $nombre,
         'post_content' => 'Producto creado desde solicitud de autoparte.',
@@ -198,12 +211,10 @@ function crear_producto_autoparte() {
         wp_send_json_error(['message' => 'No se pudo crear el producto.']);
     }
 
-    // Precio y SKU
+    // Precio, SKU e inventario
     update_post_meta($post_id, '_sku', $sku);
     update_post_meta($post_id, '_regular_price', $precio);
     update_post_meta($post_id, '_price', $precio);
-
-    // Inventario
     update_post_meta($post_id, '_manage_stock', 'yes');
     update_post_meta($post_id, '_stock', 1);
     update_post_meta($post_id, '_stock_status', 'instock');
@@ -246,84 +257,74 @@ function crear_producto_autoparte() {
         update_post_meta($post_id, '_product_image_gallery', implode(',', $galeria_ids));
     }
 
-    // Compatibilidades
-    if (!empty($compatibilidades)) {
-        $attribute_slug = 'compat_autopartes'; // NUEVO SLUG
-		$taxonomy = 'pa_' . $attribute_slug;
+    // Compatibilidades como taxonomía pa_compat_autopartes
+    $attribute_slug = 'compat_autopartes';
+    $taxonomy = 'pa_' . $attribute_slug;
+    $terminos = [];
 
-        // Registrar la taxonomía si no existe
-        if (!taxonomy_exists($taxonomy)) {
-		    register_taxonomy($taxonomy, 'product', [
-		        'hierarchical' => false,
-		        'label' => 'Compatibilidades',
-		        'query_var' => true,
-		        'rewrite' => ['slug' => sanitize_title($attribute_slug)],
-		    ]);
-		}
-        $terminos = [];
+    foreach ($compatibilidades as $c) {
+        $marca = sanitize_text_field($c['marca'] ?? '');
+        $modelo = sanitize_text_field($c['submarca'] ?? '');
+        $rango = explode('-', $c['rango'] ?? '');
+        $anio_inicio = intval(trim($rango[0] ?? 0));
+        $anio_fin = intval(trim($rango[1] ?? 0));
 
-        foreach ($compatibilidades as $c) {
-            $marca = sanitize_text_field($c->marca ?? '');
-            $modelo = sanitize_text_field($c->submarca ?? '');
-            $rango = explode('-', $c->rango ?? '');
-            $anio_inicio = intval(trim($rango[0] ?? 0));
-            $anio_fin = intval(trim($rango[1] ?? 0));
+        if (!$marca || !$modelo || !$anio_inicio || !$anio_fin) continue;
 
-            if (!$marca || !$modelo || !$anio_inicio || !$anio_fin) continue;
+        // Ejemplo: CHEVROLET AVEO (2012–2018)
+        $terminos[] = "$marca $modelo ($anio_inicio–$anio_fin)";
 
-            // 1. Término visual del rango
-            $rango_legible = "$marca $modelo ($anio_inicio–$anio_fin)";
-            $terminos[] = $rango_legible;
-
-            // 2. Términos por año para búsqueda precisa
-            for ($anio = $anio_inicio; $anio <= $anio_fin; $anio++) {
-                $terminos[] = "$marca $modelo $anio";
-            }
+        for ($anio = $anio_inicio; $anio <= $anio_fin; $anio++) {
+            $terminos[] = "$marca $modelo $anio";
         }
-
-        // Quitar duplicados
-        $terminos = array_unique($terminos);
-
-        // Crear términos si no existen
-        foreach ($terminos as $term) {
-            $term = sanitize_text_field(trim($term));
-            if (!term_exists($term, $taxonomy)) {
-                wp_insert_term($term, $taxonomy);
-            }
-        }
-		
-		// Asignar términos al producto (taxonomía)
-		wp_set_object_terms($post_id, $terminos, $taxonomy, false);
-
-        // Declarar el atributo como visible
-		$product_attributes['pa_compat_autopartes'] = [
-		    'name' => 'pa_compat_autopartes',
-		    'value' => '',
-		    'position' => 0,
-		    'is_visible' => 1,
-		    'is_variation' => 0,
-		    'is_taxonomy' => 1,
-		];
-		update_post_meta($post_id, '_product_attributes', $product_attributes);
-		// Refrescar producto como objeto WC_Product y guardar cambios
-		$product = wc_get_product($post_id);
-		$product->save(); // Asegura que todos los cambios se guarden en Woo
     }
+
+    $terminos = array_unique($terminos);
+
+    // Crear términos y asignarlos
+    foreach ($terminos as $term) {
+        $term = sanitize_text_field(trim($term));
+        if (!term_exists($term, $taxonomy)) {
+            wp_insert_term($term, $taxonomy);
+        }
+    }
+
+    wp_set_object_terms($post_id, $terminos, $taxonomy, false);
+
+    // Declarar el atributo como visible en WooCommerce
+    $product_attributes = get_post_meta($post_id, '_product_attributes', true);
+    if (!is_array($product_attributes)) {
+        $product_attributes = [];
+    }
+
+    $product_attributes[$taxonomy] = [
+        'name' => $taxonomy,
+        'value' => '',
+        'position' => 0,
+        'is_visible' => 1,
+        'is_variation' => 0,
+        'is_taxonomy' => 1,
+    ];
+
+    update_post_meta($post_id, '_product_attributes', $product_attributes);
+
+    // Guardar producto correctamente
+    $product = wc_get_product($post_id);
+    $product->save();
 
     // Marcar solicitud como aprobada
     global $wpdb;
     $wpdb->update("{$wpdb->prefix}solicitudes_piezas", [
         'estado' => 'aprobada'
     ], ['id' => $solicitud_id]);
-	
-	$terminos_asignados = wp_get_object_terms($post_id, $taxonomy, ['fields' => 'names']);
 
-	wp_send_json_success([
-    	'message' => 'Producto creado correctamente.',
-    	'sku' => $sku,
-    	'compatibilidades' => $terminos_asignados
-	]);
+    $terminos_asignados = wp_get_object_terms($post_id, 'pa_compat_autopartes', ['fields' => 'names']);
 
+    wp_send_json_success([
+        'message' => 'Producto creado correctamente.',
+        'sku' => $sku,
+        'compatibilidades' => $terminos_asignados
+    ]);
 }
 
 add_action('admin_enqueue_scripts', 'catalogo_autopartes_enqueue_scripts');
