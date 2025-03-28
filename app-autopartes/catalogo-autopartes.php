@@ -58,6 +58,21 @@ function catalogo_autopartes_cargar_recursos($hook) {
 }
 add_action('admin_enqueue_scripts', 'catalogo_autopartes_cargar_recursos');
 
+add_action('init', 'registrar_taxonomia_compatibilidades');
+function registrar_taxonomia_compatibilidades() {
+    $taxonomy = 'pa_compatibilidades';
+    if (!taxonomy_exists($taxonomy)) {
+        register_taxonomy($taxonomy, 'product', [
+            'hierarchical' => false,
+            'label' => 'Compatibilidades',
+            'query_var' => true,
+            'rewrite' => ['slug' => 'compatibilidades'],
+            'show_admin_column' => true,
+            'show_in_rest' => true,
+        ]);
+    }
+}
+
 add_action('admin_init', 'catalogo_autopartes_exportar_csv');
 function catalogo_autopartes_exportar_csv() {
     if (!isset($_GET['catalogo_id']) || $_GET['action'] !== 'exportar_catalogo') return;
@@ -289,8 +304,8 @@ function crear_producto_autoparte() {
 		wp_set_object_terms($post_id, $terminos, $taxonomy, false);
 
         // Declarar el atributo como visible
-			$product_attributes = [
-		    'compatibilidades' => [
+		$product_attributes = [
+		    'pa_compatibilidades' => [ // clave correcta que WooCommerce espera
 		        'name' => 'pa_compatibilidades',
 		        'value' => '',
 		        'position' => 0,
