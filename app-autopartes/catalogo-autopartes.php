@@ -234,18 +234,17 @@ function crear_producto_autoparte() {
     // Compatibilidades
     if (!empty($compatibilidades)) {
         $attribute_slug = 'compatibilidades';
-        $taxonomy = 'pa_' . $attribute_slug;
+		$taxonomy = 'pa_' . $attribute_slug;
 
         // Registrar la taxonomía si no existe
         if (!taxonomy_exists($taxonomy)) {
-            register_taxonomy($taxonomy, 'product', [
-                'hierarchical' => false,
-                'label' => 'Compatibilidades',
-                'query_var' => true,
-                'rewrite' => ['slug' => sanitize_title($attribute_slug)],
-            ]);
-        }
-
+		    register_taxonomy($taxonomy, 'product', [
+		        'hierarchical' => false,
+		        'label' => 'Compatibilidades',
+		        'query_var' => true,
+		        'rewrite' => ['slug' => sanitize_title($attribute_slug)],
+		    ]);
+		}
         $terminos = [];
 
         foreach ($compatibilidades as $c) {
@@ -279,26 +278,31 @@ function crear_producto_autoparte() {
         }
 
         // Asignar términos al producto
-        wp_set_object_terms($post_id, $terminos, $taxonomy);
+		foreach ($terminos as $term) {
+		    $term = sanitize_text_field(trim($term));
+		    if (!term_exists($term, $taxonomy)) {
+		        wp_insert_term($term, $taxonomy);
+		    }
+		}
+		
+		// Asignar términos al producto (taxonomía)
+		wp_set_object_terms($post_id, $terminos, $taxonomy, false);
 
         // Declarar el atributo como visible
-        $product_attributes = [
+		$product_attributes = [
 		    'pa_compatibilidades' => [
-		        'name'         => 'pa_compatibilidades',
-		        'value'        => '',
-		        'position'     => 0,
-		        'is_visible'   => 1,
+		        'name' => 'pa_compatibilidades',
+		        'value' => '',
+		        'position' => 0,
+		        'is_visible' => 1,
 		        'is_variation' => 0,
-		        'is_taxonomy'  => 1
+		        'is_taxonomy' => 1
 		    ]
 		];
-
-        update_post_meta($post_id, '_product_attributes', $product_attributes);
+		update_post_meta($post_id, '_product_attributes', $product_attributes);
 		// Refrescar producto como objeto WC_Product y guardar cambios
 		$product = wc_get_product($post_id);
 		$product->save(); // Asegura que todos los cambios se guarden en Woo
-		$asignados = wp_get_object_terms($post_id, $taxonomy, ['fields' => 'names']);
-		error_log('Compatibilidades asignadas: ' . print_r($asignados, true));
     }
 
     // Marcar solicitud como aprobada
