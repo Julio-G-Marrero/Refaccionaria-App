@@ -290,7 +290,7 @@ function crear_producto_autoparte() {
 
         // Declarar el atributo como visible
 		$product_attributes = [
-		    'pa_compatibilidades' => [
+		    'compatibilidades' => [
 		        'name' => 'pa_compatibilidades',
 		        'value' => '',
 		        'position' => 0,
