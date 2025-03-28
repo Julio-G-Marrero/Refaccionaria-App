@@ -289,7 +289,7 @@ function crear_producto_autoparte() {
 		wp_set_object_terms($post_id, $terminos, $taxonomy, false);
 
         // Declarar el atributo como visible
-		$product_attributes = [
+			$product_attributes = [
 		    'compatibilidades' => [
 		        'name' => 'pa_compatibilidades',
 		        'value' => '',
