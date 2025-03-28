@@ -248,7 +248,7 @@ function crear_producto_autoparte() {
 
     // Compatibilidades
     if (!empty($compatibilidades)) {
-        $attribute_slug = 'compatibilidades';
+        $attribute_slug = 'compat_autopartes'; // NUEVO SLUG
 		$taxonomy = 'pa_' . $attribute_slug;
 
         // Registrar la taxonomía si no existe
@@ -291,28 +291,18 @@ function crear_producto_autoparte() {
                 wp_insert_term($term, $taxonomy);
             }
         }
-
-        // Asignar términos al producto
-		foreach ($terminos as $term) {
-		    $term = sanitize_text_field(trim($term));
-		    if (!term_exists($term, $taxonomy)) {
-		        wp_insert_term($term, $taxonomy);
-		    }
-		}
 		
 		// Asignar términos al producto (taxonomía)
 		wp_set_object_terms($post_id, $terminos, $taxonomy, false);
 
         // Declarar el atributo como visible
-		$product_attributes = [
-		    'pa_compatibilidades' => [ // clave correcta que WooCommerce espera
-		        'name' => 'pa_compatibilidades',
-		        'value' => '',
-		        'position' => 0,
-		        'is_visible' => 1,
-		        'is_variation' => 0,
-		        'is_taxonomy' => 1
-		    ]
+		$product_attributes['pa_compat_autopartes'] = [
+		    'name' => 'pa_compat_autopartes',
+		    'value' => '',
+		    'position' => 0,
+		    'is_visible' => 1,
+		    'is_variation' => 0,
+		    'is_taxonomy' => 1,
 		];
 		update_post_meta($post_id, '_product_attributes', $product_attributes);
 		// Refrescar producto como objeto WC_Product y guardar cambios
