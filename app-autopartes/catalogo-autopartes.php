@@ -327,6 +327,56 @@ function crear_producto_autoparte() {
     ]);
 }
 
+add_action('wp_ajax_buscar_autopartes_compatibles', 'buscar_autopartes_compatibles');
+add_action('wp_ajax_nopriv_buscar_autopartes_compatibles', 'buscar_autopartes_compatibles');
+
+function buscar_autopartes_compatibles() {
+    $compat = sanitize_text_field($_POST['compatibilidad'] ?? '');
+    $categoria = intval($_POST['categoria'] ?? 0);
+
+    $args = [
+        'post_type' => 'product',
+        'posts_per_page' => 30,
+        'post_status' => 'publish',
+        'tax_query' => [
+            [
+                'taxonomy' => 'pa_compat_autopartes',
+                'field' => 'name',
+                'terms' => $compat,
+            ]
+        ]
+    ];
+
+    if ($categoria) {
+        $args['tax_query'][] = [
+            'taxonomy' => 'product_cat',
+            'field' => 'term_id',
+            'terms' => $categoria
+        ];
+    }
+
+    $query = new WP_Query($args);
+
+    $resultados = [];
+
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            global $product;
+
+            $resultados[] = [
+                'nombre' => get_the_title(),
+                'link'   => get_permalink(),
+                'imagen' => get_the_post_thumbnail_url(get_the_ID(), 'medium') ?: wc_placeholder_img_src(),
+                'precio' => $product->get_price_html()
+            ];
+        }
+        wp_reset_postdata();
+    }
+
+    wp_send_json_success(['resultados' => $resultados]);
+}
+
 add_action('admin_enqueue_scripts', 'catalogo_autopartes_enqueue_scripts');
 add_action('wp_ajax_ajax_enviar_solicitud_pieza', 'ajax_guardar_solicitud_pieza');
 catalogo_autopartes_crear_tablas();
