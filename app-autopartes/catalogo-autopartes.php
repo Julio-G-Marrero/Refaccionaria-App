@@ -324,26 +324,3 @@ function crear_producto_autoparte() {
 add_action('admin_enqueue_scripts', 'catalogo_autopartes_enqueue_scripts');
 add_action('wp_ajax_ajax_enviar_solicitud_pieza', 'ajax_guardar_solicitud_pieza');
 catalogo_autopartes_crear_tablas();
-
-add_action('init', 'registrar_taxonomia_compatibilidades');
-
-function registrar_taxonomia_compatibilidades() {
-    $taxonomy = 'pa_compatibilidades';
-
-    if (!taxonomy_exists($taxonomy)) {
-        register_taxonomy(
-            $taxonomy,
-            'product',
-            array(
-                'label' => 'Compatibilidades',
-                'public' => true,
-                'hierarchical' => false,
-                'show_ui' => true,
-                'show_in_nav_menus' => false,
-                'show_admin_column' => true,
-                'rewrite' => array('slug' => 'compatibilidades'),
-                'meta_box_cb' => false, // No mostrar en el editor si usas formulario personalizado
-            )
-        );
-    }
-}
