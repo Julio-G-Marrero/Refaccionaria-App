@@ -338,6 +338,14 @@ function ajax_buscar_autopartes_front() {
         'post_type' => 'product',
         'posts_per_page' => 30,
         'post_status' => 'publish',
+        'meta_query' => [
+            [
+                'key' => '_stock',
+                'value' => 0,
+                'compare' => '>',
+                'type' => 'NUMERIC'
+            ]
+        ],
         'tax_query' => [
             [
                 'taxonomy' => 'pa_compat_autopartes',
@@ -363,11 +371,39 @@ function ajax_buscar_autopartes_front() {
             $query->the_post();
             global $product;
 
+            // Compatibilidades
+            $terms = wp_get_object_terms(get_the_ID(), 'pa_compat_autopartes', ['fields' => 'names']);
+            $agrupadas = [];
+
+            foreach ($terms as $term) {
+                if (preg_match('/^(.+?)\\s+(\\d{4})$/', $term, $match)) {
+                    $clave = trim($match[1]);
+                    $anio = intval($match[2]);
+                    $agrupadas[$clave][] = $anio;
+                }
+            }
+
+            $compatibilidades_rango = [];
+            foreach ($agrupadas as $clave => $anios) {
+                sort($anios);
+                $inicio = $fin = $anios[0];
+                for ($i = 1; $i < count($anios); $i++) {
+                    if ($anios[$i] === $fin + 1) {
+                        $fin = $anios[$i];
+                    } else {
+                        $compatibilidades_rango[] = "$clave $inicio–$fin";
+                        $inicio = $fin = $anios[$i];
+                    }
+                }
+                $compatibilidades_rango[] = "$clave $inicio–$fin";
+            }
+
             $resultados[] = [
                 'nombre' => get_the_title(),
                 'link' => get_permalink(),
                 'imagen' => get_the_post_thumbnail_url(get_the_ID(), 'medium') ?: wc_placeholder_img_src(),
-                'precio' => $product->get_price_html()
+                'precio' => $product->get_price_html(),
+                'compatibilidades' => $compatibilidades_rango
             ];
         }
         wp_reset_postdata();
