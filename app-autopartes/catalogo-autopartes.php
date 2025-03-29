@@ -333,10 +333,14 @@ add_action('wp_ajax_nopriv_buscar_autopartes_front', 'ajax_buscar_autopartes_fro
 function ajax_buscar_autopartes_front() {
     $compat = sanitize_text_field($_POST['compatibilidad'] ?? '');
     $categoria = intval($_POST['categoria'] ?? 0);
+    $pagina = max(1, intval($_POST['pagina'] ?? 1));
+    $por_pagina = max(1, intval($_POST['por_pagina'] ?? 15));
+    $offset = ($pagina - 1) * $por_pagina;
 
     $args = [
         'post_type' => 'product',
-        'posts_per_page' => 30,
+        'posts_per_page' => $por_pagina,
+        'offset' => $offset,
         'post_status' => 'publish',
         'meta_query' => [
             [
@@ -359,7 +363,7 @@ function ajax_buscar_autopartes_front() {
         $args['tax_query'][] = [
             'taxonomy' => 'product_cat',
             'field' => 'term_id',
-            'terms' => $categoria
+            'terms' => [$categoria]
         ];
     }
 
@@ -371,32 +375,34 @@ function ajax_buscar_autopartes_front() {
             $query->the_post();
             global $product;
 
-            // Compatibilidades
             $terms = wp_get_object_terms(get_the_ID(), 'pa_compat_autopartes', ['fields' => 'names']);
+
             $agrupadas = [];
 
             foreach ($terms as $term) {
-                if (preg_match('/^(.+?)\s*\(?(\d{4})\)?$/', $term, $match)) {
-                    $clave = trim($match[1]); // Marca + Submarca
+                if (preg_match('/^(.+?)\s+(\d{4})$/', $term, $match)) {
+                    $clave = strtoupper(trim($match[1])); // CHEVROLET CUSTOM
                     $anio = intval($match[2]);
                     $agrupadas[$clave][] = $anio;
                 }
             }
 
             $compatibilidades_rango = [];
+
             foreach ($agrupadas as $clave => $anios) {
                 sort($anios);
                 $inicio = $fin = $anios[0];
+
                 for ($i = 1; $i < count($anios); $i++) {
                     if ($anios[$i] === $fin + 1) {
                         $fin = $anios[$i];
                     } else {
-                        $compatibilidades_rango[] = $inicio === $fin ? "$clave $inicio" : "$clave $inicio–$fin";
+                        $compatibilidades_rango[] = "$clave $inicio–$fin";
                         $inicio = $fin = $anios[$i];
                     }
                 }
-                // Cierre final
-                $compatibilidades_rango[] = $inicio === $fin ? "$clave $inicio" : "$clave $inicio–$fin";
+
+                $compatibilidades_rango[] = "$clave $inicio–$fin";
             }
 
             $resultados[] = [
@@ -410,7 +416,10 @@ function ajax_buscar_autopartes_front() {
         wp_reset_postdata();
     }
 
-    wp_send_json_success(['resultados' => $resultados]);
+    wp_send_json_success([
+        'resultados' => $resultados,
+        'total_paginas' => ceil($query->found_posts / $por_pagina)
+    ]);
 }
 
 add_action('wp_ajax_obtener_submarcas', 'ajax_obtener_submarcas');
