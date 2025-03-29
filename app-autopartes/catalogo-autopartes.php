@@ -271,7 +271,7 @@ function crear_producto_autoparte() {
 
         if (!$marca || !$modelo || !$anio_inicio || !$anio_fin) continue;
 
-        // Ejemplo: CHEVROLET AVEO (2012–2018)
+        // Ejemplo: CHEVROLET AVEO 2012–2018 (sin paréntesis)
         $terminos[] = "$marca $modelo $anio_inicio–$anio_fin";
 
         for ($anio = $anio_inicio; $anio <= $anio_fin; $anio++) {
