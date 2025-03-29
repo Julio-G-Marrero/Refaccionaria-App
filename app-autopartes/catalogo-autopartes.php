@@ -381,13 +381,23 @@ add_action('wp_ajax_nopriv_obtener_submarcas', 'ajax_obtener_submarcas');
 
 function ajax_obtener_submarcas() {
     global $wpdb;
-    $marca = sanitize_text_field($_GET['marca'] ?? '');
-    if (!$marca) wp_send_json_error();
 
-    $submarcas = $wpdb->get_col($wpdb->prepare(
-        "SELECT DISTINCT submarca FROM {$wpdb->prefix}compatibilidades WHERE marca = %s ORDER BY submarca ASC",
-        $marca
-    ));
+    if (!isset($_GET['marca']) || empty($_GET['marca'])) {
+        wp_send_json_error(['message' => 'Marca no recibida']);
+    }
+
+    $marca = sanitize_text_field($_GET['marca']);
+
+    $submarcas = $wpdb->get_col($wpdb->prepare("
+        SELECT DISTINCT submarca
+        FROM {$wpdb->prefix}compatibilidades
+        WHERE marca = %s
+        ORDER BY submarca ASC
+    ", $marca));
+
+    if (empty($submarcas)) {
+        wp_send_json_error(['message' => 'No se encontraron submarcas']);
+    }
 
     wp_send_json_success(['submarcas' => $submarcas]);
 }
