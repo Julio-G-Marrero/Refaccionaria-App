@@ -391,11 +391,12 @@ function ajax_buscar_autopartes_front() {
                     if ($anios[$i] === $fin + 1) {
                         $fin = $anios[$i];
                     } else {
-                        $compatibilidades_rango[] = "$clave $inicio–$fin";
+                        $compatibilidades_rango[] = $inicio === $fin ? "$clave $inicio" : "$clave $inicio–$fin";
                         $inicio = $fin = $anios[$i];
                     }
                 }
-                $compatibilidades_rango[] = "$clave $inicio–$fin";
+                // Cierre final
+                $compatibilidades_rango[] = $inicio === $fin ? "$clave $inicio" : "$clave $inicio–$fin";
             }
 
             $resultados[] = [
