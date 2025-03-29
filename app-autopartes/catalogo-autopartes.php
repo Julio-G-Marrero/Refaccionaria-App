@@ -372,8 +372,33 @@ function ajax_buscar_autopartes_front() {
 
     foreach ($query->posts as $post) {
         $product = wc_get_product($post->ID);
-        $compat = wp_get_post_terms($post->ID, 'pa_compat_autopartes', ['fields' => 'names']);
+        $terms = wp_get_object_terms($product->get_id(), 'pa_compat_autopartes', ['fields' => 'names']);
 
+        $agrupadas = [];
+        foreach ($terms as $term) {
+            if (preg_match('/^(.+?)\\s+(\\d{4})$/', $term, $match)) {
+                $clave = $match[1]; // ej. CHEVROLET SILVERADO
+                $anio = intval($match[2]);
+                $agrupadas[$clave][] = $anio;
+            }
+        }
+        
+        $compatibilidades_rango = [];
+        foreach ($agrupadas as $clave => $anios) {
+            sort($anios);
+            $inicio = $fin = $anios[0];
+        
+            for ($i = 1; $i < count($anios); $i++) {
+                if ($anios[$i] === $fin + 1) {
+                    $fin = $anios[$i];
+                } else {
+                    $compatibilidades_rango[] = "$clave $inicio–$fin";
+                    $inicio = $fin = $anios[$i];
+                }
+            }
+            $compatibilidades_rango[] = "$clave $inicio–$fin";
+        }
+        
         $resultados[] = [
             'nombre' => $product->get_name(),
             'precio' => $product->get_price_html(),
