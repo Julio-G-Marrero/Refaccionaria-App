@@ -268,17 +268,15 @@ function crear_producto_autoparte() {
         $rango = explode('-', $c['rango'] ?? '');
         $anio_inicio = intval(trim($rango[0] ?? 0));
         $anio_fin = intval(trim($rango[1] ?? 0));
-
+    
         if (!$marca || !$modelo || !$anio_inicio || !$anio_fin) continue;
-
-        // Ejemplo: CHEVROLET AVEO 2012–2018 (sin paréntesis)
-        $terminos[] = "$marca $modelo $anio_inicio–$anio_fin";
-
+    
+        // Agregar todos los años como términos: 1999, 2000, 2001...
         for ($anio = $anio_inicio; $anio <= $anio_fin; $anio++) {
             $terminos[] = "$marca $modelo $anio";
         }
     }
-
+    
     $terminos = array_unique($terminos);
 
     // Crear términos y asignarlos
@@ -381,18 +379,16 @@ function ajax_buscar_autopartes_front() {
 
             foreach ($terms as $term) {
                 if (preg_match('/^(.+?)\s+(\d{4})$/', $term, $match)) {
-                    $clave = strtoupper(trim($match[1])); // CHEVROLET CUSTOM
+                    $clave = trim($match[1]); // ej. CHEVROLET SILVERADO
                     $anio = intval($match[2]);
                     $agrupadas[$clave][] = $anio;
                 }
             }
-
+            
             $compatibilidades_rango = [];
-
             foreach ($agrupadas as $clave => $anios) {
                 sort($anios);
                 $inicio = $fin = $anios[0];
-
                 for ($i = 1; $i < count($anios); $i++) {
                     if ($anios[$i] === $fin + 1) {
                         $fin = $anios[$i];
@@ -401,7 +397,6 @@ function ajax_buscar_autopartes_front() {
                         $inicio = $fin = $anios[$i];
                     }
                 }
-
                 $compatibilidades_rango[] = "$clave $inicio–$fin";
             }
 
