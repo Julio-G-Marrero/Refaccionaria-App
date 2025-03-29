@@ -335,6 +335,26 @@ function ajax_buscar_autopartes_front() {
     $por_pagina = max(1, intval($_POST['por_pagina'] ?? 15));
     $offset = ($pagina - 1) * $por_pagina;
 
+    $tax_query = [];
+
+    // Solo aplicar compatibilidad si viene un término válido
+    if (!empty($compat)) {
+        $tax_query[] = [
+            'taxonomy' => 'pa_compat_autopartes',
+            'field' => 'name',
+            'terms' => $compat,
+        ];
+    }
+
+    // Si hay categoría seleccionada
+    if ($categoria) {
+        $tax_query[] = [
+            'taxonomy' => 'product_cat',
+            'field' => 'term_id',
+            'terms' => [$categoria]
+        ];
+    }
+
     $args = [
         'post_type' => 'product',
         'posts_per_page' => $por_pagina,
@@ -348,21 +368,11 @@ function ajax_buscar_autopartes_front() {
                 'type' => 'NUMERIC'
             ]
         ],
-        'tax_query' => [
-            [
-                'taxonomy' => 'pa_compat_autopartes',
-                'field' => 'name',
-                'terms' => $compat,
-            ]
-        ]
     ];
 
-    if ($categoria) {
-        $args['tax_query'][] = [
-            'taxonomy' => 'product_cat',
-            'field' => 'term_id',
-            'terms' => [$categoria]
-        ];
+    // Solo incluir tax_query si tiene condiciones
+    if (!empty($tax_query)) {
+        $args['tax_query'] = $tax_query;
     }
 
     $query = new WP_Query($args);
@@ -374,7 +384,6 @@ function ajax_buscar_autopartes_front() {
             global $product;
 
             $terms = wp_get_object_terms(get_the_ID(), 'pa_compat_autopartes', ['fields' => 'names']);
-
             $agrupadas = [];
 
             foreach ($terms as $term) {
@@ -384,7 +393,7 @@ function ajax_buscar_autopartes_front() {
                     $agrupadas[$clave][] = $anio;
                 }
             }
-            
+
             $compatibilidades_rango = [];
             foreach ($agrupadas as $clave => $anios) {
                 sort($anios);
