@@ -331,30 +331,18 @@ add_action('wp_ajax_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 add_action('wp_ajax_nopriv_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 
 function ajax_buscar_autopartes_front() {
-    $termino = sanitize_text_field($_POST['compatibilidad'] ?? '');
+    $compat = sanitize_text_field($_POST['compatibilidad'] ?? '');
     $categoria = intval($_POST['categoria'] ?? 0);
-    $pagina = max(1, intval($_POST['pagina'] ?? 1));
-    $por_pagina = max(1, intval($_POST['por_pagina'] ?? 15));
-    $offset = ($pagina - 1) * $por_pagina;
 
     $args = [
         'post_type' => 'product',
+        'posts_per_page' => 30,
         'post_status' => 'publish',
-        'posts_per_page' => $por_pagina,
-        'offset' => $offset,
-        'meta_query' => [
-            [ // Solo productos con stock
-                'key' => '_stock',
-                'value' => 0,
-                'compare' => '>',
-                'type' => 'NUMERIC'
-            ]
-        ],
         'tax_query' => [
             [
                 'taxonomy' => 'pa_compat_autopartes',
                 'field' => 'name',
-                'terms' => [$termino]
+                'terms' => $compat,
             ]
         ]
     ];
@@ -363,55 +351,29 @@ function ajax_buscar_autopartes_front() {
         $args['tax_query'][] = [
             'taxonomy' => 'product_cat',
             'field' => 'term_id',
-            'terms' => [$categoria]
+            'terms' => $categoria
         ];
     }
 
     $query = new WP_Query($args);
     $resultados = [];
 
-    foreach ($query->posts as $post) {
-        $product = wc_get_product($post->ID);
-        $terms = wp_get_object_terms($product->get_id(), 'pa_compat_autopartes', ['fields' => 'names']);
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            global $product;
 
-        $agrupadas = [];
-        foreach ($terms as $term) {
-            if (preg_match('/^(.+?)\\s+(\\d{4})$/', $term, $match)) {
-                $clave = $match[1]; // ej. CHEVROLET SILVERADO
-                $anio = intval($match[2]);
-                $agrupadas[$clave][] = $anio;
-            }
+            $resultados[] = [
+                'nombre' => get_the_title(),
+                'link' => get_permalink(),
+                'imagen' => get_the_post_thumbnail_url(get_the_ID(), 'medium') ?: wc_placeholder_img_src(),
+                'precio' => $product->get_price_html()
+            ];
         }
-        
-        $compatibilidades_rango = [];
-        foreach ($agrupadas as $clave => $anios) {
-            sort($anios);
-            $inicio = $fin = $anios[0];
-        
-            for ($i = 1; $i < count($anios); $i++) {
-                if ($anios[$i] === $fin + 1) {
-                    $fin = $anios[$i];
-                } else {
-                    $compatibilidades_rango[] = "$clave $inicio–$fin";
-                    $inicio = $fin = $anios[$i];
-                }
-            }
-            $compatibilidades_rango[] = "$clave $inicio–$fin";
-        }
-        
-        $resultados[] = [
-            'nombre' => $product->get_name(),
-            'precio' => $product->get_price_html(),
-            'imagen' => get_the_post_thumbnail_url($post->ID, 'medium') ?: 'https://via.placeholder.com/150x150?text=Sin+Imagen',
-            'link' => get_permalink($post->ID),
-            'compatibilidades' => $compat
-        ];
+        wp_reset_postdata();
     }
 
-    wp_send_json_success([
-        'resultados' => $resultados,
-        'total_paginas' => ceil($query->found_posts / $por_pagina)
-    ]);
+    wp_send_json_success(['resultados' => $resultados]);
 }
 
 add_action('wp_ajax_obtener_submarcas', 'ajax_obtener_submarcas');
