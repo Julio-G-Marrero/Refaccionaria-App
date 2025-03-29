@@ -327,6 +327,71 @@ function crear_producto_autoparte() {
     ]);
 }
 
+add_action('wp_ajax_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
+add_action('wp_ajax_nopriv_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
+
+function ajax_buscar_autopartes_front() {
+    $compat = sanitize_text_field($_POST['compatibilidad'] ?? '');
+    $categoria = intval($_POST['categoria'] ?? 0);
+
+    $args = [
+        'post_type' => 'product',
+        'posts_per_page' => 30,
+        'post_status' => 'publish',
+        'tax_query' => [
+            [
+                'taxonomy' => 'pa_compat_autopartes',
+                'field' => 'name',
+                'terms' => $compat,
+            ]
+        ]
+    ];
+
+    if ($categoria) {
+        $args['tax_query'][] = [
+            'taxonomy' => 'product_cat',
+            'field' => 'term_id',
+            'terms' => $categoria
+        ];
+    }
+
+    $query = new WP_Query($args);
+    $resultados = [];
+
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            global $product;
+
+            $resultados[] = [
+                'nombre' => get_the_title(),
+                'link' => get_permalink(),
+                'imagen' => get_the_post_thumbnail_url(get_the_ID(), 'medium') ?: wc_placeholder_img_src(),
+                'precio' => $product->get_price_html()
+            ];
+        }
+        wp_reset_postdata();
+    }
+
+    wp_send_json_success(['resultados' => $resultados]);
+}
+
+add_action('wp_ajax_obtener_submarcas', 'ajax_obtener_submarcas');
+add_action('wp_ajax_nopriv_obtener_submarcas', 'ajax_obtener_submarcas');
+
+function ajax_obtener_submarcas() {
+    global $wpdb;
+    $marca = sanitize_text_field($_GET['marca'] ?? '');
+    if (!$marca) wp_send_json_error();
+
+    $submarcas = $wpdb->get_col($wpdb->prepare(
+        "SELECT DISTINCT submarca FROM {$wpdb->prefix}compatibilidades WHERE marca = %s ORDER BY submarca ASC",
+        $marca
+    ));
+
+    wp_send_json_success(['submarcas' => $submarcas]);
+}
+
 add_action('wp_ajax_buscar_autopartes_compatibles', 'buscar_autopartes_compatibles');
 add_action('wp_ajax_nopriv_buscar_autopartes_compatibles', 'buscar_autopartes_compatibles');
 
