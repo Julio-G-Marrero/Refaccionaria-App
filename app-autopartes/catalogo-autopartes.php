@@ -211,7 +211,7 @@ function crear_producto_autoparte() {
     }
 
     // Generar SKU extendido (base + post_id)
-    $sku_extendido = $sku_base . '-' . $post_id;
+    $sku_extendido = $sku_base . '#P' . $post_id;
 
     // Precio, SKU e inventario
     update_post_meta($post_id, '_sku', $sku_extendido);
