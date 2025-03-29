@@ -310,6 +310,9 @@ function crear_producto_autoparte() {
     $product = wc_get_product($post_id);
     $product->save();
 
+    // Relacionar producto con solicitud
+    update_post_meta($post_id, 'solicitud_id', $solicitud_id);
+
     // Marcar solicitud como aprobada
     global $wpdb;
     $wpdb->update("{$wpdb->prefix}solicitudes_piezas", [

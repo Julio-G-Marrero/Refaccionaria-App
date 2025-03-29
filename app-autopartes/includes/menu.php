@@ -94,6 +94,15 @@ function catalogo_autopartes_menu() {
         'catalogo_autopartes_solicitudes_autopartes'
     );
     
+    add_menu_page(
+        'Imprimir Códigos QR',
+        'Imprimir QR',
+        'manage_options',
+        'impresion_qr',
+        function() {
+            include plugin_dir_path(__FILE__) . 'impresion_qr.php';
+        }
+    );
 
 }
 
