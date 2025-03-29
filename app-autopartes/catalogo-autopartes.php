@@ -330,7 +330,7 @@ function crear_producto_autoparte() {
 add_action('wp_ajax_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 add_action('wp_ajax_nopriv_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 
-function buscar_autopartes_front() {
+function ajax_buscar_autopartes_front() {
     $termino = sanitize_text_field($_POST['compatibilidad'] ?? '');
     $categoria = intval($_POST['categoria'] ?? 0);
     $pagina = max(1, intval($_POST['pagina'] ?? 1));
