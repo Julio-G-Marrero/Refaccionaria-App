@@ -347,7 +347,7 @@ function ajax_buscar_autopartes_front() {
              INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id 
              WHERE tt.taxonomy = %s AND t.name LIKE %s",
             'pa_compat_autopartes',
-            $wpdb->esc_like($compat) . '%'
+            '%' . $wpdb->esc_like($compat) . '%'
         ));
 
         if (!empty($term_ids)) {
