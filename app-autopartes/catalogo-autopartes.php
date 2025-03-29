@@ -330,19 +330,31 @@ function crear_producto_autoparte() {
 add_action('wp_ajax_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 add_action('wp_ajax_nopriv_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 
-function ajax_buscar_autopartes_front() {
-    $compat = sanitize_text_field($_POST['compatibilidad'] ?? '');
+function buscar_autopartes_front() {
+    $termino = sanitize_text_field($_POST['compatibilidad'] ?? '');
     $categoria = intval($_POST['categoria'] ?? 0);
+    $pagina = max(1, intval($_POST['pagina'] ?? 1));
+    $por_pagina = max(1, intval($_POST['por_pagina'] ?? 15));
+    $offset = ($pagina - 1) * $por_pagina;
 
     $args = [
         'post_type' => 'product',
-        'posts_per_page' => 30,
         'post_status' => 'publish',
+        'posts_per_page' => $por_pagina,
+        'offset' => $offset,
+        'meta_query' => [
+            [ // Solo productos con stock
+                'key' => '_stock',
+                'value' => 0,
+                'compare' => '>',
+                'type' => 'NUMERIC'
+            ]
+        ],
         'tax_query' => [
             [
                 'taxonomy' => 'pa_compat_autopartes',
                 'field' => 'name',
-                'terms' => $compat,
+                'terms' => [$termino]
             ]
         ]
     ];
@@ -351,29 +363,30 @@ function ajax_buscar_autopartes_front() {
         $args['tax_query'][] = [
             'taxonomy' => 'product_cat',
             'field' => 'term_id',
-            'terms' => $categoria
+            'terms' => [$categoria]
         ];
     }
 
     $query = new WP_Query($args);
     $resultados = [];
 
-    if ($query->have_posts()) {
-        while ($query->have_posts()) {
-            $query->the_post();
-            global $product;
+    foreach ($query->posts as $post) {
+        $product = wc_get_product($post->ID);
+        $compat = wp_get_post_terms($post->ID, 'pa_compat_autopartes', ['fields' => 'names']);
 
-            $resultados[] = [
-                'nombre' => get_the_title(),
-                'link' => get_permalink(),
-                'imagen' => get_the_post_thumbnail_url(get_the_ID(), 'medium') ?: wc_placeholder_img_src(),
-                'precio' => $product->get_price_html()
-            ];
-        }
-        wp_reset_postdata();
+        $resultados[] = [
+            'nombre' => $product->get_name(),
+            'precio' => $product->get_price_html(),
+            'imagen' => get_the_post_thumbnail_url($post->ID, 'medium') ?: 'https://via.placeholder.com/150x150?text=Sin+Imagen',
+            'link' => get_permalink($post->ID),
+            'compatibilidades' => $compat
+        ];
     }
 
-    wp_send_json_success(['resultados' => $resultados]);
+    wp_send_json_success([
+        'resultados' => $resultados,
+        'total_paginas' => ceil($query->found_posts / $por_pagina)
+    ]);
 }
 
 add_action('wp_ajax_obtener_submarcas', 'ajax_obtener_submarcas');
