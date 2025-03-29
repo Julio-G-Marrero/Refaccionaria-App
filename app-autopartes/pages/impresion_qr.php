@@ -68,16 +68,18 @@ $solicitudes_aprobadas = $wpdb->get_results("
 
 <script>
 function imprimirQR(qrUrl, descripcion) {
+    const sku = qrUrl.split('=')[1] || '';
     const ventana = window.open('', '_blank');
     ventana.document.write(`
         <html>
         <head><title>Imprimir QR</title></head>
         <body style="text-align: center; font-family: sans-serif;">
             <h3 style="margin-bottom: 10px;">${descripcion}</h3>
+            <p style="margin-bottom: 5px; font-size: 14px;"><strong>SKU:</strong> ${sku}</p>
             <img src="${qrUrl}" alt="QR" style="width: 200px; height: 200px;" />
             <script>
                 setTimeout(() => { window.print(); window.close(); }, 500);
-            </script>
+            <\/script>
         </body>
         </html>
     `);

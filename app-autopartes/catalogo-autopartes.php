@@ -185,8 +185,8 @@ function crear_producto_autoparte() {
         wp_send_json_error(['message' => 'Permisos insuficientes.']);
     }
 
-    // Sanitizar datos
-    $sku = sanitize_text_field($_POST['sku'] ?? '');
+    // Datos base
+    $sku_base = sanitize_text_field($_POST['sku'] ?? '');
     $nombre = sanitize_text_field($_POST['nombre'] ?? '');
     $precio = floatval($_POST['precio'] ?? 0);
     $categoria_id = intval($_POST['categoria'] ?? 0);
@@ -195,11 +195,10 @@ function crear_producto_autoparte() {
     $solicitud_id = intval($_POST['solicitud_id'] ?? 0);
     $imagenes = json_decode(stripslashes($_POST['imagenes'] ?? '[]'), true);
     $compatibilidades = json_decode(stripslashes($_POST['compatibilidades'] ?? '[]'), true);
-
     if (!is_array($imagenes)) $imagenes = [];
     if (!is_array($compatibilidades)) $compatibilidades = [];
 
-    // Crear producto
+    // Crear producto (sin SKU aún)
     $post_id = wp_insert_post([
         'post_title'   => $nombre,
         'post_content' => 'Producto creado desde solicitud de autoparte.',
@@ -211,8 +210,11 @@ function crear_producto_autoparte() {
         wp_send_json_error(['message' => 'No se pudo crear el producto.']);
     }
 
+    // Generar SKU extendido (base + post_id)
+    $sku_extendido = $sku_base . '-' . $post_id;
+
     // Precio, SKU e inventario
-    update_post_meta($post_id, '_sku', $sku);
+    update_post_meta($post_id, '_sku', $sku_extendido);
     update_post_meta($post_id, '_regular_price', $precio);
     update_post_meta($post_id, '_price', $precio);
     update_post_meta($post_id, '_manage_stock', 'yes');
@@ -228,7 +230,7 @@ function crear_producto_autoparte() {
     update_post_meta($post_id, '_ubicacion_fisica', $ubicacion);
     update_post_meta($post_id, '_observaciones', $observaciones);
 
-    // Imágenes
+    // Subir imágenes
     require_once(ABSPATH . 'wp-admin/includes/image.php');
     require_once(ABSPATH . 'wp-admin/includes/file.php');
     require_once(ABSPATH . 'wp-admin/includes/media.php');
@@ -237,12 +239,7 @@ function crear_producto_autoparte() {
     foreach ($imagenes as $index => $img_url) {
         $tmp = download_url($img_url);
         if (is_wp_error($tmp)) continue;
-
-        $file_array = [
-            'name'     => basename($img_url),
-            'tmp_name' => $tmp,
-        ];
-
+        $file_array = ['name' => basename($img_url), 'tmp_name' => $tmp];
         $attachment_id = media_handle_sideload($file_array, $post_id);
         if (is_wp_error($attachment_id)) continue;
 
@@ -252,7 +249,6 @@ function crear_producto_autoparte() {
             $galeria_ids[] = $attachment_id;
         }
     }
-
     if (!empty($galeria_ids)) {
         update_post_meta($post_id, '_product_image_gallery', implode(',', $galeria_ids));
     }
@@ -268,18 +264,13 @@ function crear_producto_autoparte() {
         $rango = explode('-', $c['rango'] ?? '');
         $anio_inicio = intval(trim($rango[0] ?? 0));
         $anio_fin = intval(trim($rango[1] ?? 0));
-    
         if (!$marca || !$modelo || !$anio_inicio || !$anio_fin) continue;
-    
-        // Agregar todos los años como términos: 1999, 2000, 2001...
         for ($anio = $anio_inicio; $anio <= $anio_fin; $anio++) {
             $terminos[] = "$marca $modelo $anio";
         }
     }
-    
-    $terminos = array_unique($terminos);
 
-    // Crear términos y asignarlos
+    $terminos = array_unique($terminos);
     foreach ($terminos as $term) {
         $term = sanitize_text_field(trim($term));
         if (!term_exists($term, $taxonomy)) {
@@ -289,11 +280,8 @@ function crear_producto_autoparte() {
 
     wp_set_object_terms($post_id, $terminos, $taxonomy, false);
 
-    // Declarar el atributo como visible en WooCommerce
     $product_attributes = get_post_meta($post_id, '_product_attributes', true);
-    if (!is_array($product_attributes)) {
-        $product_attributes = [];
-    }
+    if (!is_array($product_attributes)) $product_attributes = [];
 
     $product_attributes[$taxonomy] = [
         'name' => $taxonomy,
@@ -306,27 +294,25 @@ function crear_producto_autoparte() {
 
     update_post_meta($post_id, '_product_attributes', $product_attributes);
 
-    // Guardar producto correctamente
-    $product = wc_get_product($post_id);
-    $product->save();
-
-    // Relacionar producto con solicitud
+    // Relación con la solicitud
     update_post_meta($post_id, 'solicitud_id', $solicitud_id);
 
-    // Marcar solicitud como aprobada
     global $wpdb;
-    $wpdb->update("{$wpdb->prefix}solicitudes_piezas", [
-        'estado' => 'aprobada'
-    ], ['id' => $solicitud_id]);
+    $wpdb->update("{$wpdb->prefix}solicitudes_piezas", ['estado' => 'aprobada'], ['id' => $solicitud_id]);
+
+    // Guardar producto
+    $product = wc_get_product($post_id);
+    $product->save();
 
     $terminos_asignados = wp_get_object_terms($post_id, 'pa_compat_autopartes', ['fields' => 'names']);
 
     wp_send_json_success([
         'message' => 'Producto creado correctamente.',
-        'sku' => $sku,
+        'sku' => $sku_extendido,
         'compatibilidades' => $terminos_asignados
     ]);
 }
+
 
 add_action('wp_ajax_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 add_action('wp_ajax_nopriv_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
