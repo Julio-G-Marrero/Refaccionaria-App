@@ -329,6 +329,8 @@ add_action('wp_ajax_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 add_action('wp_ajax_nopriv_buscar_autopartes_front', 'ajax_buscar_autopartes_front');
 
 function ajax_buscar_autopartes_front() {
+    global $wpdb;
+
     $compat = sanitize_text_field($_POST['compatibilidad'] ?? '');
     $categoria = intval($_POST['categoria'] ?? 0);
     $pagina = max(1, intval($_POST['pagina'] ?? 1));
@@ -337,16 +339,34 @@ function ajax_buscar_autopartes_front() {
 
     $tax_query = [];
 
-    // Solo aplicar compatibilidad si viene un término válido
+    // 🚀 Búsqueda parcial por término de compatibilidad
     if (!empty($compat)) {
-        $tax_query[] = [
-            'taxonomy' => 'pa_compat_autopartes',
-            'field' => 'name',
-            'terms' => $compat,
-        ];
+        // Buscar términos que empiecen con la palabra ingresada
+        $term_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT t.term_id FROM {$wpdb->terms} t 
+             INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id 
+             WHERE tt.taxonomy = %s AND t.name LIKE %s",
+            'pa_compat_autopartes',
+            $wpdb->esc_like($compat) . '%'
+        ));
+
+        if (!empty($term_ids)) {
+            $tax_query[] = [
+                'taxonomy' => 'pa_compat_autopartes',
+                'field'    => 'term_id',
+                'terms'    => $term_ids,
+            ];
+        } else {
+            // No hay coincidencias
+            wp_send_json_success([
+                'resultados' => [],
+                'total_paginas' => 0
+            ]);
+            return;
+        }
     }
 
-    // Si hay categoría seleccionada
+    // 🎯 Filtro adicional por categoría si se seleccionó
     if ($categoria) {
         $tax_query[] = [
             'taxonomy' => 'product_cat',
@@ -355,22 +375,23 @@ function ajax_buscar_autopartes_front() {
         ];
     }
 
+    // 📦 Argumentos para buscar productos publicados con stock > 0
     $args = [
-        'post_type' => 'product',
+        'post_type'      => 'product',
         'posts_per_page' => $por_pagina,
-        'offset' => $offset,
-        'post_status' => 'publish',
-        'meta_query' => [
+        'offset'         => $offset,
+        'post_status'    => 'publish',
+        'meta_query'     => [
             [
-                'key' => '_stock',
-                'value' => 0,
+                'key'     => '_stock',
+                'value'   => 0,
                 'compare' => '>',
-                'type' => 'NUMERIC'
+                'type'    => 'NUMERIC'
             ]
         ],
     ];
 
-    // Solo incluir tax_query si tiene condiciones
+    // Solo agregamos tax_query si hay condiciones
     if (!empty($tax_query)) {
         $args['tax_query'] = $tax_query;
     }
@@ -388,7 +409,7 @@ function ajax_buscar_autopartes_front() {
 
             foreach ($terms as $term) {
                 if (preg_match('/^(.+?)\s+(\d{4})$/', $term, $match)) {
-                    $clave = trim($match[1]); // ej. CHEVROLET SILVERADO
+                    $clave = trim($match[1]);
                     $anio = intval($match[2]);
                     $agrupadas[$clave][] = $anio;
                 }
@@ -410,19 +431,19 @@ function ajax_buscar_autopartes_front() {
             }
 
             $resultados[] = [
-                'nombre' => get_the_title(),
-                'link' => get_permalink(),
-                'imagen' => get_the_post_thumbnail_url(get_the_ID(), 'medium') ?: wc_placeholder_img_src(),
-                'precio' => $product->get_price_html(),
-                'compatibilidades' => $compatibilidades_rango
+                'nombre'            => get_the_title(),
+                'link'              => get_permalink(),
+                'imagen'            => get_the_post_thumbnail_url(get_the_ID(), 'medium') ?: wc_placeholder_img_src(),
+                'precio'            => $product->get_price_html(),
+                'compatibilidades'  => $compatibilidades_rango
             ];
         }
         wp_reset_postdata();
     }
 
     wp_send_json_success([
-        'resultados' => $resultados,
-        'total_paginas' => ceil($query->found_posts / $por_pagina)
+        'resultados'     => $resultados,
+        'total_paginas'  => ceil($query->found_posts / $por_pagina)
     ]);
 }
 
